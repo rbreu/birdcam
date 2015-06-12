@@ -50,11 +50,6 @@ if CROP_IMAGES:
     motion_mask[:motion_mask.shape[0]//2][...] = 0
 
 
-class MotionFoundException(Exception):
-
-    def __init__(self, motion):
-        self.motion = motion
-
 
 class MotionAnalyser(picamera.array.PiMotionAnalysis):
 
@@ -89,7 +84,8 @@ class AliveMessageWriter:
     def write(self, now, dawn, dusk):
         if self.last_written is None or (now - self.last_written).seconds > 10*60:
             with open(os.path.join('/tmp/', 'alive.txt'), 'w') as f:
-                f.write('Now: {0}, dawn: {1}, dusk: {2}'.format(now, dawn, dusk))
+                f.write(
+                    'Now: {0}, dawn: {1}, dusk: {2}'.format(now, dawn, dusk))
                 self.last_written = now
 
 
