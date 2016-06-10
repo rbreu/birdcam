@@ -184,5 +184,8 @@ with picamera.PiCamera() as camera:
                                    analyser.last_motionframes)
                         break
                     time.sleep(0.1)
+        else:
+            # wait to wake up
+            time.sleep(10)
 
         time.sleep(DELAY_AFTER_HIT)

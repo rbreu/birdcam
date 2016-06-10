@@ -2,7 +2,7 @@
 # Vogelkamera mit dem Raspberry PI
 
 
-## Rebecca Breu, Juni 2015
+## Rebecca Breu, Juni 2016
 
 # Wie alles begann...
 
@@ -16,22 +16,24 @@
 * Suchen nach "interessanten" Bildern mit Python:
 
 
-    import glob
-    import numpy
-    from matplotlib import image
+```python
+import glob
+import numpy
+from matplotlib import image
 
-    def rgb2gray(rgb):
-        return numpy.dot(rgb[...,:3], [0.299, 0.587, 0.144])
+def rgb2gray(rgb):
+    return numpy.dot(rgb[...,:3], [0.299, 0.587, 0.144])
 
-    oldimg = None
+oldimg = None
 
-    for infile in glob.glob('*.JPG'):
-        img = rgb2gray(image.imread(infile))
+for infile in glob.glob('*.JPG'):
+    img = rgb2gray(image.imread(infile))
 
-        if oldimg is not None:
-            diff = numpy.linalg.norm(img - oldimg)
-            # ... do something
-        oldimg = img
+    if oldimg is not None:
+        diff = numpy.linalg.norm(img - oldimg)
+        # ... do something
+    oldimg = img
+```
 
 # Probleme:
 
@@ -46,18 +48,20 @@
 
 
 
-    from astral import Astral
+```python
+from astral import Astral
 
-    a = Astral()
-    a.solar_depression = 3
-    location = a['Berlin']
+a = Astral()
+a.solar_depression = 3
+location = a['Berlin']
 
-    location.latitude = 50.9534001
-    location.longitude = 6.9548886
-    location.elevation = 56
+location.latitude = 50.9534001
+location.longitude = 6.9548886
+location.elevation = 56
 
-    print(location.dawn())
-    print(location.dusk())
+print(location.dawn())
+print(location.dusk())
+```
 
     2015-06-09 05:00:25+02:00
     2015-06-09 22:02:27+02:00
@@ -67,19 +71,21 @@
 
 
 
-    import time
-    import picamera
+```python
+import time
+import picamera
 
-    with picamera.PiCamera() as camera:
-        camera.resolution = (1024, 768)
-        camera.start_preview()
-        # Camera warm-up time
-        time.sleep(2)
-        camera.capture('test.png')
+with picamera.PiCamera() as camera:
+    camera.resolution = (1024, 768)
+    camera.start_preview()
+    # Camera warm-up time
+    time.sleep(2)
+    camera.capture('test.png')
 
-        camera.start_recording('my_video.h264', motion_output='motion.data')
-        camera.wait_recording(60)
-        camera.stop_recording()
+    camera.start_recording('my_video.h264', motion_output='motion.data')
+    camera.wait_recording(60)
+    camera.stop_recording()
+```
 
 # Bewegungsdaten
 
@@ -89,39 +95,47 @@
 
 <img src="talk/motion.png" width="100%">
 
+# Testen :)
+
+<img src="talk/test.jpg" width="100%">
+
 # Bewegungsdaten on the fly analysieren
 
 
 
-    class MotionAnalyser(picamera.array.PiMotionAnalysis):
+```python
+class MotionAnalyser(picamera.array.PiMotionAnalysis):
 
-        FRAMES = 5
+    FRAMES = 5
 
-        def __init__(self, *args, **kwargs):
-            super(MotionAnalyser, self).__init__(*args, **kwargs)
-            self.motion = None
-            self.last_motions = deque([0] * self.FRAMES, maxlen=self.FRAMES)
+    def __init__(self, *args, **kwargs):
+        super(MotionAnalyser, self).__init__(*args, **kwargs)
+        self.motion = None
+        self.last_motions = deque([0] * self.FRAMES, maxlen=self.FRAMES)
 
-        def analyse(self, m):
-            data = numpy.sqrt(
-                numpy.square(m['x'].astype(numpy.float)) +
-                numpy.square(m['y'].astype(numpy.float))
-            )
-            norm = numpy.linalg.norm(data)
-            self.last_motions.append(norm)
-            if min(self.last_motions) > MOTION_THRESHOLD:
-                self.motion = True
+    def analyse(self, m):
+        data = numpy.sqrt(
+            numpy.square(m['x'].astype(numpy.float)) +
+            numpy.square(m['y'].astype(numpy.float))
+        )
+        norm = numpy.linalg.norm(data)
+        self.last_motions.append(norm)
+        if min(self.last_motions) > MOTION_THRESHOLD:
+            self.motion = True
+
+```
 
 
-
-    with MotionAnalyser(camera) as analyser:
-        camera.start_recording('/dev/null', format='h264', motion_output=analyser)
-        while True:
-            if analyser.motion:
-                camera.stop_recording()
-                # ...
-                break
-            time.sleep(0.1)
+```python
+with MotionAnalyser(camera) as analyser:
+    camera.start_recording('/dev/null', format='h264', motion_output=analyser)
+    while True:
+        if analyser.motion:
+            camera.stop_recording()
+            # ...
+            break
+        time.sleep(0.1)
+```
 
 Erste Ergebnisse nach ein paar warmen, trockenen Tagen: Es kommen Vögel zum Trinken und Baden!
 
@@ -141,40 +155,46 @@ Aber...
 # Das RPi-GPIO-Modul
 
 
-    from RPi import GPIO
-    import time
+```python
+from RPi import GPIO
+import time
 
-    IR_PIN = 14 # data
+IR_PIN = 14 # data
 
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setwarnings(False)
-    GPIO.setup(IR_PIN, GPIO.IN)
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(IR_PIN, GPIO.IN)
 
-    try:
-        while True:
-            if GPIO.input(IR_PIN):
-                print('Bewegung!')
-            time.sleep(1)
-    except KeyboardInterrupt:
-        GPIO.cleanup()
+try:
+    while True:
+        if GPIO.input(IR_PIN):
+            print('Bewegung!')
+        time.sleep(1)
+except KeyboardInterrupt:
+    GPIO.cleanup()
+```
 
 # Das RPi-GPIO-Modul
 
 
-    GPIO.add_event_detect(IR_PIN, GPIO.RISING)
-    while True:
-        if GPIO.event_detected(IR_PIN):
-            print('Bewegung!')
-        time.sleep(1)
+```python
+GPIO.add_event_detect(IR_PIN, GPIO.RISING)
+while True:
+    if GPIO.event_detected(IR_PIN):
+        print('Bewegung!')
+    time.sleep(1)
+```
 
 Interrupts:
 
 
-    def my_callback(channel):
-        print('Bewegung!')
+```python
+def my_callback(channel):
+    print('Bewegung!')
 
-    GPIO.add_event_detect(IR_PIN, GPIO.RISING, callback=my_callback)
+GPIO.add_event_detect(IR_PIN, GPIO.RISING, callback=my_callback)
 
+```
 
 # Aber...
 
@@ -200,22 +220,24 @@ Gibt es bessere Sensoren?
 # Anpassen der Bewegungs-Analyse
 
 
-    motion_mask = matplotlib.image.imread('motion_mask.png')[..., 0]
+```python
+motion_mask = matplotlib.image.imread('motion_mask.png')[..., 0]
 
-    class MotionAnalyser(picamera.array.PiMotionAnalysis):
+class MotionAnalyser(picamera.array.PiMotionAnalysis):
 
-        # ...
+    # ...
 
-        def analyse(self, m):
-            data = numpy.sqrt(
-                numpy.square(m['x'].astype(numpy.float)) +
-                numpy.square(m['y'].astype(numpy.float))
-            )
-            data = numpy.multiply(data, motion_mask)
-            norm = numpy.linalg.norm(data)
-            self.last_motions.append(norm)
-            if min(self.last_motions) > MOTION_THRESHOLD:
-                self.motion = True
+    def analyse(self, m):
+        data = numpy.sqrt(
+            numpy.square(m['x'].astype(numpy.float)) +
+            numpy.square(m['y'].astype(numpy.float))
+        )
+        data = numpy.multiply(data, motion_mask)
+        norm = numpy.linalg.norm(data)
+        self.last_motions.append(norm)
+        if min(self.last_motions) > MOTION_THRESHOLD:
+            self.motion = True
+```
 
 # Und...
 
@@ -226,7 +248,7 @@ Gibt es bessere Sensoren?
 # Ergebnisse
 
 * Vögel kommen regelmäßig zum Trinken und Baden
-* Sieben Vogelarten gesichtet (darunter solche, die sich sonst nicht im Innenhof aufhalten)
+* Acht Vogelarten gesichtet (darunter solche, die sich sonst nicht im Innenhof aufhalten)
 * Insekten trinken ebenfalls
 * ... ich muss öfter Fenster putzen
 
@@ -254,9 +276,19 @@ Elster
 
 Blaumeise
 
+<img src="talk/zaunkoenig.png" width="100%">
+
+Zaunkönig
+
+<img src="talk/stieglitz.png" width="100%">
+
+Stieglitz
+
 <img src="talk/biene.png" width="100%">
 
 Honigbiene
+
+<img src="talk/kohlmeise.gif" width="100%">
 
 # Danke!
 
